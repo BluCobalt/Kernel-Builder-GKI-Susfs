@@ -288,7 +288,7 @@ jobs:
       - name: Integrate NoMount
         if: inputs.root_manager != 'Stock' && inputs.enable_nomount == true
         env:
-          NOMOUNT_REPO_URL: https://github.com/maxsteeel/nomount
+          NOMOUNT_REPO_URL: https://github.com/maxsteeel/nomount.git
           NOMOUNT_REPO_REF: v2.0.0
         run: |
           bash ./scripts/integrate_nomount.sh

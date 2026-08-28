@@ -7,7 +7,7 @@ cd kernel_workspace
 
 echo ">>> Cloning nomount..."
 
-git clone --depth=1 -b "${NOMOUNT_NEXT_REF}" "${NOMOUNT_NEXT_URL}" nomount || echo "[-] Error: Clone failed. Exiting." >&2; exit 1
+git clone --depth=1 -b "${NOMOUNT_REPO_REF}" "${NOMOUNT_REPO_URL}" nomount || echo "[-] Error: Clone failed. Exiting." >&2; exit 1
 
 echo ">>> Copying nomount files..."
 mkdir -p common/fs/nomount 
