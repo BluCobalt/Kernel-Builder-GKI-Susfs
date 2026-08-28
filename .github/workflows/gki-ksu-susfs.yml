@@ -38,6 +38,13 @@ on:
         required: false
         type: boolean
         default: true
+
+      enable_nomount:
+        description: "Integrate NoMount?"
+        required: false
+        type: boolean
+        default: false
+      
         
 #      enable_ksu:
 #        description: "Integrate Root Manager only? (uncheck 'Integrate Root Manager and SUSFS')"
@@ -277,6 +284,14 @@ jobs:
         if: inputs.root_manager != 'Stock' && inputs.enable_ksu_susfs == true
         run: |
           bash ./scripts/fix_susfs_rejections.sh
+
+      - name: Integrate NoMount
+        if: inputs.root_manager != 'Stock' && inputs.enable_nomount == true
+        env:
+          NOMOUNT_REPO_URL: https://github.com/maxsteeel/nomount
+          NOMOUNT_REPO_REF: v2.0.0
+        run: |
+          bash ./scripts/integrate_nomount.sh
 
       - name: Configure Kconfigs and Fragments
         env:
