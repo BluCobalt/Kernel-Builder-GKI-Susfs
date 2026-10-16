@@ -90,8 +90,10 @@ fi
 cd .. 
 
 # ---------------------------------------------------------
-# KernelSU-Next Kbuild Hotfix (Universal)
+# KernelSU-Next Hotfixes
 # ---------------------------------------------------------
+
+# Kbuild Strict Dependency Bypass
 KBUILD_FILE="${MANAGER_DIR}/kernel/Kbuild"
 if [ -f "$KBUILD_FILE" ]; then
     if grep -q "KernelSU requires either CONFIG_KPROBES" "$KBUILD_FILE"; then
@@ -102,18 +104,19 @@ if [ -f "$KBUILD_FILE" ]; then
     fi
 fi
 
-# ---------------------------------------------------------
-# KernelSU-Next SELinux Hide LTO Polyfill
-# ---------------------------------------------------------
-# SuSFS services.c expects a global fake_state on kernels < 6.6.
-# KernelSU-Next removed it. We must polyfill it to prevent ld.lld panics.
-SELINUX_HIDE_FILE="${MANAGER_DIR}/kernel/feature/selinux_hide.c"
-if [ -f "$SELINUX_HIDE_FILE" ]; then
-    echo ">>> [HOTFIX] Polyfilling global fake_state definition to survive LTO..."
-    # Strip any existing declarations to prevent accidental redefinitions
-    sed -i -E 's/^[ \t]*(static )?struct selinux_state fake_state;//g' "$SELINUX_HIDE_FILE"
-    # Unconditionally append the polyfill
-    echo -e "\nstruct selinux_state fake_state = {0};" >> "$SELINUX_HIDE_FILE"
+# Implicit Declaration Fix (task_pid_nr)
+KDP_FILE="${MANAGER_DIR}/kernel/compat/samsung_kdp.c"
+if [ -f "$KDP_FILE" ]; then
+    if ! grep -q "#include <linux/pid.h>" "$KDP_FILE"; then
+        echo ">>> [HOTFIX] Injecting linux/pid.h into samsung_kdp.c to fix implicit declaration..."
+        sed -i '1i #include <linux/pid.h>' "$KDP_FILE"
+    else
+        echo ">>> [NOTICE] pid.h is already included in samsung_kdp.c. Upstream likely fixed this."
+    fi
 fi
+
+echo "  -> Target Tag: $CALCULATED_TAG"
+echo "  -> Target Hash: $UPSTREAM_HASH"
+echo "  -> Target Count: $CALCULATED_COUNT"
 
 echo ">>> KernelSU-Next integration complete."

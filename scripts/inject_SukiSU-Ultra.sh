@@ -53,24 +53,40 @@ CALCULATED_TAG=$(git describe --tags --abbrev=0 "${UPSTREAM_HASH}" 2>/dev/null |
 cd ..
 
 # ---------------------------------------------------------
-# SukiSU-Ultra 6.12+ LSM Hook API Fix
+# SukiSU-Ultra Linker Hotfixes (GOT/PLT Panic Fix)
 # ---------------------------------------------------------
-echo ">>> Checking for Linux 6.12+ LSM API Mismatch in SukiSU-Ultra..."
-K_VER=$(grep "^VERSION =" common/Makefile | tr -d ' ' | cut -d'=' -f2)
-K_PATCH=$(grep "^PATCHLEVEL =" common/Makefile | tr -d ' ' | cut -d'=' -f2)
+K_VER=$(grep "^VERSION =" common/Makefile | tr -d ' ' | cut -d'=' -f2 || echo "0")
+K_PATCH=$(grep "^PATCHLEVEL =" common/Makefile | tr -d ' ' | cut -d'=' -f2 || echo "0")
 
-if [ "$K_VER" = "6" ] && [ "$K_PATCH" -ge "12" ]; then
-    LSM_HOOK_FILE="common/drivers/kernelsu/hook/lsm_hook.c"
-
-    if [ -f "$LSM_HOOK_FILE" ] && grep -q 'security_add_hooks' "$LSM_HOOK_FILE"; then
-        echo "  -> Kernel 6.12+ detected. Disarming deprecated LSM hook registration..."
-        sed -i 's/security_add_hooks.*/(void)ksu_hooks;/g' "$LSM_HOOK_FILE"
-        echo "  -> lsm_hook.c runtime panic trap bypassed!"
-    else
-        echo "  -> LSM hook is already updated or file missing. Skipping."
+if [ "$K_VER" = "6" ] && [ "$K_PATCH" -ge "6" ]; then
+    SELINUX_HIDE_FILE="${MANAGER_DIR}/kernel/feature/selinux_hide.c"
+    
+    if [ -f "$SELINUX_HIDE_FILE" ]; then
+        echo ">>> [HOTFIX] Hardening trailing __weak stubs to prevent Android GKI GOT/PLT panics..."
+        sed -i 's/) __weak;/);/g' "$SELINUX_HIDE_FILE"
+        sed -i 's/__weak//g' "$SELINUX_HIDE_FILE"
+        echo "  -> Trailing weak stubs successfully hardened into strong LTO symbols."
     fi
-else
-    echo "  -> Kernel $K_VER.$K_PATCH detected. Legacy LSM string hook is perfectly valid."
+fi
+
+# ---------------------------------------------------------
+# SukiSU-Ultra Clang 17 & Linker Undefined Symbol Hotfix
+# ---------------------------------------------------------
+K_VER=$(grep "^VERSION =" common/Makefile | tr -d ' ' | cut -d'=' -f2 || echo "0")
+K_PATCH=$(grep "^PATCHLEVEL =" common/Makefile | tr -d ' ' | cut -d'=' -f2 || echo "0")
+
+if [ "$K_VER" = "6" ] && [ "$K_PATCH" -ge "6" ]; then
+    SELINUX_HIDE_FILE="${MANAGER_DIR}/kernel/feature/selinux_hide.c"
+    
+    if [ -f "$SELINUX_HIDE_FILE" ]; then
+        echo ">>> [HOTFIX] Neutering missing weak fallbacks via dead-code elimination..."
+        
+        # Replace the check with 'if (0)' to optimize away the undefined linker references
+        sed -i -E 's/if \([[:space:]]*\&?security_dump_masked_av_fn[[:space:]]*\)/if (0)/g' "$SELINUX_HIDE_FILE"
+        sed -i -E 's/if \([[:space:]]*\&?context_struct_compute_av_fn[[:space:]]*\)/if (0)/g' "$SELINUX_HIDE_FILE"
+        
+        echo "  -> Unresolved weak fallback blocks eliminated."
+    fi
 fi
 
 echo "  -> Target Tag: $CALCULATED_TAG"

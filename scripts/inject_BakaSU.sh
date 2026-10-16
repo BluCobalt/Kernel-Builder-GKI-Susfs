@@ -53,9 +53,9 @@ else
 fi
 
 # ---------------------------------------------------------
-# BakaSU SuSFS Strict Version Gatekeeper Hotfix
+# BakaSU Hotfixes
 # ---------------------------------------------------------
-# BakaSU intentionally crashes the Kbuild if it thinks SuSFS is outdated.
+
 # We strip the $(error ...) directive to force compilation of our custom port.
 SUSFS_COMPAT_MK="${MANAGER_DIR}/kernel/tools/susfs_compat.mk"
 if [ -f "$SUSFS_COMPAT_MK" ]; then
@@ -63,6 +63,26 @@ if [ -f "$SUSFS_COMPAT_MK" ]; then
     sed -i '/Please wait susfs update/d' "$SUSFS_COMPAT_MK"
 else
     echo ">>> [NOTICE] BakaSU gatekeeper file not found at $SUSFS_COMPAT_MK"
+fi
+
+# Injecting 'return 0;' for BakaSU non-void legacy kernel compat
+SELINUX_HIDE_FILE="${MANAGER_DIR}/kernel/feature/selinux_hide.c"
+if [ -f "$SELINUX_HIDE_FILE" ]; then
+    K_VER=$(grep "^VERSION =" common/Makefile | tr -d ' ' | cut -d'=' -f2 || echo "0")
+    K_PATCH=$(grep "^PATCHLEVEL =" common/Makefile | tr -d ' ' | cut -d'=' -f2 || echo "0")
+    
+    # Only kernels < 6.6 require the int return fix
+    if ! { [ "$K_VER" = "6" ] && [ "$K_PATCH" -ge "6" ]; }; then
+        if grep -q "void security_compute_av_user_with_policy" "$SELINUX_HIDE_FILE"; then
+            echo ">>> [HOTFIX] Patching BakaSU non-void return error for legacy kernels..."
+            
+            # Line 1: Fix the signature from void to int
+            sed -i 's/__maybe_static void security_compute_av_user_with_policy/__maybe_static int security_compute_av_user_with_policy/g' "$SELINUX_HIDE_FILE"
+            
+            # Line 2: Inject the return 0;
+            sed -i 's/ksu_security_compute_av_user(policydb, sidtab, ssid, tsid, tclass, avd);/ksu_security_compute_av_user(policydb, sidtab, ssid, tsid, tclass, avd);\n\treturn 0;/g' "$SELINUX_HIDE_FILE"
+        fi
+    fi
 fi
 
 echo "  -> Target Tag: $CALCULATED_TAG"
